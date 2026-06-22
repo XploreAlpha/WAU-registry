@@ -65,22 +65,29 @@ func NewGRPCStore(addr string, logger *slog.Logger) (*HTTPStore, error) {
 }
 
 // agentCardJSON 内部 JSON schema(跟 wau-registry-service HTTP API 一致)
+//
+// v0.8.0 M1-2:加 Protocols + Endpoints 字段,老 service 不识别会忽略,
+// 所以这里兼容降级:新字段 optional,缺失时 lib 端走 URL fallback
 type agentCardJSON struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	URL         string   `json:"url"`
-	Skills      []string `json:"skills"`
-	Universes   []string `json:"universes"`
-	Version     string   `json:"version"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	URL         string     `json:"url"`
+	Skills      []string   `json:"skills"`
+	Universes   []string   `json:"universes"`
+	Version     string     `json:"version"`
+	Protocols   []string   `json:"protocols,omitempty"` // v0.8.0 M1-2
+	Endpoints   []Endpoint `json:"endpoints,omitempty"` // v0.8.0 M1-2
 }
 
 // Heartbeat 心跳 = 注册 + 保活
 func (h *HTTPStore) Heartbeat(ctx context.Context, req *HeartbeatRequest) error {
 	card := agentCardJSON{
-		Name:    req.Name,
-		URL:     req.URL,
-		Skills:  req.Skills,
-		Version: req.Version,
+		Name:      req.Name,
+		URL:       req.URL,
+		Skills:    req.Skills,
+		Version:   req.Version,
+		Protocols: req.Protocols,
+		Endpoints: req.Endpoints,
 	}
 	if req.Universe != "" {
 		card.Universes = []string{req.Universe}
@@ -222,12 +229,14 @@ func (h *HTTPStore) jsonToLibCard(j *agentCardJSON) *AgentCard {
 		return nil
 	}
 	card := &AgentCard{
-		ID:      j.Name, // lib 用 ID,proto 只有 name
-		Name:    j.Name,
-		URL:     j.URL,
-		Version: j.Version,
-		Skills:  j.Skills,
-		Online:  true,
+		ID:        j.Name, // lib 用 ID,proto 只有 name
+		Name:      j.Name,
+		URL:       j.URL,
+		Version:   j.Version,
+		Skills:    j.Skills,
+		Online:    true,
+		Protocols: j.Protocols, // v0.8.0 M1-2
+		Endpoints: j.Endpoints, // v0.8.0 M1-2
 	}
 	if len(j.Universes) > 0 {
 		card.Universe = j.Universes[0]

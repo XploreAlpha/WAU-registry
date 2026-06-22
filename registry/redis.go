@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -60,6 +61,20 @@ func (r *RedisStore) Heartbeat(ctx context.Context, req *HeartbeatRequest) error
 		"firstSeen":  firstSeen,
 		"lastSeen":   now,
 		"online":     true,
+	}
+
+	// v0.8.0 M1-2:多协议声明
+	if len(req.Protocols) > 0 {
+		cardData["protocols"] = joinStrings(req.Protocols, ",")
+	}
+	if len(req.Endpoints) > 0 {
+		// Endpoints 是结构化数据,JSON 序列化存 Redis HASH
+		// 单个 field 存完整 JSON,反序列化时 parse
+		if epJSON, err := marshalEndpoints(req.Endpoints); err == nil {
+			cardData["endpoints"] = epJSON
+		} else {
+			r.logger.Warn("failed to marshal endpoints, skipping", "agent", req.AgentID, "error", err)
+		}
 	}
 
 	pipe := r.client.Pipeline()
@@ -223,14 +238,54 @@ func (r *RedisStore) Close() error {
 // 辅助函数
 
 func joinSkills(skills []string) string {
-	if len(skills) == 0 {
+	return joinStrings(skills, ",")
+}
+
+// joinStrings 用 sep 连接字符串切片
+//
+// v0.8.0 M1-2:通用化 join 逻辑,Protocols 字段也复用
+func joinStrings(items []string, sep string) string {
+	if len(items) == 0 {
 		return ""
 	}
-	result := skills[0]
-	for i := 1; i < len(skills); i++ {
-		result += "," + skills[i]
+	result := items[0]
+	for i := 1; i < len(items); i++ {
+		result += sep + items[i]
 	}
 	return result
+}
+
+// marshalEndpoints 把 []Endpoint 序列化成 JSON 字符串(给 Redis HASH 存)
+//
+// v0.8.0 M1-2:Endpoints 是结构化数据,不能简单 join,必须 JSON
+func marshalEndpoints(eps []Endpoint) (string, error) {
+	data, err := json.Marshal(eps)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// parseEndpoints 从 Redis HASH 字符串反序列化 []Endpoint
+//
+// 失败容错:解析失败 → log warn + 返 nil(降级到 URL fallback,不抛错)
+func parseEndpoints(s string) []Endpoint {
+	if s == "" {
+		return nil
+	}
+	var eps []Endpoint
+	if err := json.Unmarshal([]byte(s), &eps); err != nil {
+		return nil
+	}
+	return eps
+}
+
+// parseProtocols 从 Redis HASH 字符串(逗号分隔)反序列化 []string
+func parseProtocols(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return splitSkills(s) // 复用已有的逗号分隔逻辑
 }
 
 func splitSkills(s string) []string {
@@ -282,6 +337,14 @@ func parseAgentCard(data map[string]string) *AgentCard {
 	}
 	if lastSeen, err := parseInt64(data["lastSeen"]); err == nil {
 		card.LastSeen = lastSeen
+	}
+
+	// v0.8.0 M1-2:多协议字段(降级处理,缺失时当空切片)
+	if protocols := parseProtocols(data["protocols"]); len(protocols) > 0 {
+		card.Protocols = protocols
+	}
+	if endpoints := parseEndpoints(data["endpoints"]); len(endpoints) > 0 {
+		card.Endpoints = endpoints
 	}
 
 	return card

@@ -5,34 +5,60 @@ import (
 	"time"
 )
 
+// Endpoint 单协议端点(v0.8.0 M1-2 引入)
+//
+// 一个 agent 可以声明多个 endpoint,每个走不同协议。
+// 典型场景:agent 同时支持 A2A (JSON-RPC) 和 AFP (HTTP+JSON),
+// SDK 走 A2A 调对话,AFP 走大文件 / 流式。
+//
+// 向后兼容:老 agent 不填 Endpoints,SessionManager 走 URL fallback。
+type Endpoint struct {
+	Protocol string `json:"protocol"`           // "a2a" / "afp" / "mcp" / ...
+	URL      string `json:"url"`                // 该协议的端点 URL
+	Tenant   string `json:"tenant,omitempty"`   // AFP 等需要 universe 路由时填
+}
+
 // HeartbeatRequest 心跳请求
 // 心跳 = 注册 + 保活 (同一个动作)
 type HeartbeatRequest struct {
-	AgentID      string   `json:"agentId"`
-	Name         string   `json:"name"`
-	URL          string   `json:"url"`
-	Version      string   `json:"version"`
-	Skills       []string `json:"skills"`
-	Universe     string   `json:"universe,omitempty"`
+	AgentID  string   `json:"agentId"`
+	Name     string   `json:"name"`
+	URL      string   `json:"url"` // 保留:默认 A2A 端点(向后兼容)
+	Version  string   `json:"version"`
+	Skills   []string `json:"skills"`
+	Universe string   `json:"universe,omitempty"`
+
+	// 多协议声明(v0.8.0 M1-2 新增)
+	// Protocols:agent 声明支持的协议列表(如 ["a2a", "afp"])
+	// Endpoints:每个协议对应的 URL(必填 Protocols 中每个都有)
+	// 老 agent 不填这两字段,fallback 到 URL 当 A2A。
+	Protocols []string   `json:"protocols,omitempty"`
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 
 	// 负载信息
-	ActiveTasks  int      `json:"activeTasks"`
-	MaxCapacity  int      `json:"maxCapacity"`
-	CPUUsage     float64  `json:"cpuUsage"`
-	MemoryUsage  float64  `json:"memoryUsage"`
+	ActiveTasks int     `json:"activeTasks"`
+	MaxCapacity int     `json:"maxCapacity"`
+	CPUUsage    float64 `json:"cpuUsage"`
+	MemoryUsage float64 `json:"memoryUsage"`
 }
 
 // AgentCard Agent 注册信息
 type AgentCard struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	URL         string   `json:"url"`
-	Version     string   `json:"version"`
-	Skills      []string `json:"skills"`
-	Universe    string   `json:"universe,omitempty"`
-	FirstSeen   int64    `json:"firstSeen"`
-	LastSeen    int64    `json:"lastSeen"`
-	Online      bool     `json:"online"`
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	URL      string   `json:"url"` // 保留:默认 A2A 端点(向后兼容)
+	Version  string   `json:"version"`
+	Skills   []string `json:"skills"`
+	Universe string   `json:"universe,omitempty"`
+	FirstSeen int64   `json:"firstSeen"`
+	LastSeen  int64   `json:"lastSeen"`
+	Online    bool    `json:"online"`
+
+	// 多协议声明(v0.8.0 M1-2 新增)
+	// Protocols:声明支持的协议列表
+	// Endpoints:每个协议对应的 URL
+	Protocols []string   `json:"protocols,omitempty"`
+	Endpoints []Endpoint `json:"endpoints,omitempty"`
 }
 
 // AgentLoad Agent 负载信息
