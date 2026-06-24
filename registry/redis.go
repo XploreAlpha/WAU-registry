@@ -77,6 +77,12 @@ func (r *RedisStore) Heartbeat(ctx context.Context, req *HeartbeatRequest) error
 		}
 	}
 
+	// v0.8.0 M4-3 hotfix 2: lineage(自繁衍)
+	// 仅在非空时写(omitempty,顶级 agent 不占 Redis 存储)
+	if req.ParentAgentID != "" {
+		cardData["parentAgentId"] = req.ParentAgentID
+	}
+
 	pipe := r.client.Pipeline()
 
 	// 设置 Card 数据
@@ -346,6 +352,10 @@ func parseAgentCard(data map[string]string) *AgentCard {
 	if endpoints := parseEndpoints(data["endpoints"]); len(endpoints) > 0 {
 		card.Endpoints = endpoints
 	}
+
+	// v0.8.0 M4-3 hotfix 2: lineage(自繁衍)
+	// HASH 缺字段 → 空字符串(顶级 agent,lineage 无)
+	card.ParentAgentID = data["parentAgentId"]
 
 	return card
 }

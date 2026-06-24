@@ -35,6 +35,11 @@ type HeartbeatRequest struct {
 	Protocols []string   `json:"protocols,omitempty"`
 	Endpoints []Endpoint `json:"endpoints,omitempty"`
 
+	// v0.8.0 M4-3 hotfix 2: lineage(自繁衍)
+	// 空 = 顶级 agent(老 agent 或主动注册);非空 = 该 agent 是 ParentAgentID 的 child
+	// kernel.ReplicateAgent 在 M4-3 繁衍子 agent 时填,跨重启可恢复 lineage
+	ParentAgentID string `json:"parentAgentId,omitempty"`
+
 	// 负载信息
 	ActiveTasks int     `json:"activeTasks"`
 	MaxCapacity int     `json:"maxCapacity"`
@@ -59,6 +64,10 @@ type AgentCard struct {
 	// Endpoints:每个协议对应的 URL
 	Protocols []string   `json:"protocols,omitempty"`
 	Endpoints []Endpoint `json:"endpoints,omitempty"`
+
+	// v0.8.0 M4-3 hotfix 2: lineage(自繁衍)
+	// 空 = 顶级 agent;非空 = child of ParentAgentID
+	ParentAgentID string `json:"parentAgentId,omitempty"`
 }
 
 // AgentLoad Agent 负载信息
