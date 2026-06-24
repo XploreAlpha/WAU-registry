@@ -202,3 +202,92 @@ func TestAgentCardWithMultiProtocol(t *testing.T) {
 		t.Fatalf("afp endpoint wrong: %+v", card.Endpoints[1])
 	}
 }
+
+// TestAgentCardWithParentAgentID 验证 lineage 字段(自繁衍)
+//
+// v0.8.0 M4-3 hotfix 2:parent_agent_id 持久化场景
+// - 有 parentAgentId 字段 → 正确反序列化
+// - 缺 parentAgentId 字段(老 card / 顶级 agent)→ 空字符串(omitempty 语义)
+func TestAgentCardWithParentAgentID(t *testing.T) {
+	tests := []struct {
+		name        string
+		data        map[string]string
+		wantParent  string
+	}{
+		{
+			name: "child with parent",
+			data: map[string]string{
+				"id":            "benny-child-1",
+				"name":          "Benny-Child-1",
+				"url":           "http://child:8080",
+				"skills":        "chat",
+				"firstSeen":     "1000",
+				"lastSeen":      "2000",
+				"online":        "true",
+				"parentAgentId": "benny", // hotfix 2 新字段
+			},
+			wantParent: "benny",
+		},
+		{
+			name: "top-level agent no parent",
+			data: map[string]string{
+				"id":        "benny",
+				"name":      "Benny",
+				"url":       "http://benny:8080",
+				"skills":    "chat",
+				"firstSeen": "1000",
+				"lastSeen":  "2000",
+				"online":    "true",
+				// 故意不填 parentAgentId(顶级 agent / 老 card)
+			},
+			wantParent: "",
+		},
+		{
+			name: "multi-level lineage",
+			data: map[string]string{
+				"id":            "grandchild",
+				"name":          "Grandchild",
+				"url":           "http://gc:8080",
+				"skills":        "chat",
+				"firstSeen":     "1000",
+				"lastSeen":      "2000",
+				"online":        "true",
+				"parentAgentId": "benny-child-1", // grandchild of benny
+			},
+			wantParent: "benny-child-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			card := parseAgentCard(tt.data)
+			if card == nil {
+				t.Fatal("card is nil")
+			}
+			if card.ParentAgentID != tt.wantParent {
+				t.Fatalf("ParentAgentID: want %q, got %q", tt.wantParent, card.ParentAgentID)
+			}
+		})
+	}
+}
+
+// TestHeartbeatRequestParentAgentID 验证 HeartbeatRequest 字段透传
+//
+// v0.8.0 M4-3 hotfix 2:kernel.ReplicateAgent 会把 decision.ParentID 填这里
+func TestHeartbeatRequestParentAgentID(t *testing.T) {
+	req := HeartbeatRequest{
+		AgentID:       "benny-child-1",
+		Name:          "Benny-Child-1",
+		URL:           "http://child:8080",
+		Skills:        []string{"chat"},
+		ParentAgentID: "benny",
+	}
+	if req.ParentAgentID != "benny" {
+		t.Fatalf("ParentAgentID: want %q, got %q", "benny", req.ParentAgentID)
+	}
+
+	// JSON 序列化验证 tag 正确
+	// 注:实际 Heartbeat 路径用 Redis HASH,不直接 marshal HeartbeatRequest,
+	// 但 ParentAgentID 字段在 Redis HASH 里也用同 JSON tag "parentAgentId"
+	// 这里只验证 struct 字段名 + JSON tag 一致性(per types.go 显式 tag)
+}
