@@ -40,6 +40,16 @@ type HeartbeatRequest struct {
 	// kernel.ReplicateAgent 在 M4-3 繁衍子 agent 时填,跨重启可恢复 lineage
 	ParentAgentID string `json:"parentAgentId,omitempty"`
 
+	// v0.8.0 M5-1 B.3: UniverseLabels 算力调度标签
+	//   - 6 reserved keys(per kernel internal/registry/universe_labels.go):
+	//     region / gpu / tier / security_level / load / universe_role
+	//   - 其他自由 label 必须 snake_case
+	//   - wau-registry 不做硬校验(只透传 + 持久化),
+	//     校验统一在 kernel ValidateUniverseLabels
+	//   - 调度决策由 wau-scheduler 的 NetworkPenalty 维度 label 加权负责
+	//   - K8s Node Affinity 渲染留 v1.0+(per W-6 design §决策 3)
+	UniverseLabels map[string]string `json:"universeLabels,omitempty"`
+
 	// 负载信息
 	ActiveTasks int     `json:"activeTasks"`
 	MaxCapacity int     `json:"maxCapacity"`
@@ -68,6 +78,13 @@ type AgentCard struct {
 	// v0.8.0 M4-3 hotfix 2: lineage(自繁衍)
 	// 空 = 顶级 agent;非空 = child of ParentAgentID
 	ParentAgentID string `json:"parentAgentId,omitempty"`
+
+	// v0.8.0 M5-1 B.3: UniverseLabels 算力调度标签(持久化版)
+	//   - 跟 HeartbeatRequest.UniverseLabels 同 schema
+	//   - 调度时由 wau-scheduler 通过 GetAgent 读取
+	//   - 老 AgentCard 不填此字段 = 空 map(向后兼容)
+	//   - K8s Node Affinity manifest 渲染留 v1.0+
+	UniverseLabels map[string]string `json:"universeLabels,omitempty"`
 }
 
 // AgentLoad Agent 负载信息
