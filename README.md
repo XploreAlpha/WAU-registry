@@ -235,6 +235,41 @@ wau-registry/
 
 ---
 
+## v0.9.0 "Acorn" 收口段(2026-09-15 GA)
+
+上文详细介绍了 peer / discovery 设计 + v0.3.0 完成后状态。本段为 v0.9.0 GA 增量补充。
+
+### 角色
+
+| OS 类比 | Agent Registry(库,内存索引)|
+|---|---|
+| 部署 | 独立 git 仓 = `wau-registry`(库)+ `wau-registry-service`(独立服务)|
+| 通信 | WAU-core-kernel 内嵌调用,不直接对外 |
+| 状态 | v0.3.0 library 完成,v0.8.0 GA 已发(2026-07-13)|
+
+### v0.9.0 集成
+
+- **跟 wau-registry-service 区分**(per [[project-wau-registry-vs-service]]):
+  - `wau-registry`:Go 库,被嵌入 WAU-core-kernel
+  - `wau-registry-service`:独立 RPC 服务,可独立部署(可选)
+- **A2A 标准兼容**(per [[project-wau-registry-a2a-compat]]):读 AgentCard JSON
+- **3 新仓接入**:wau-edge / wau-llm-router / wau-channel 注册为 peer
+
+### v0.9.0 "Acorn" 5 份核心文档
+
+| # | 文件 | 内容 |
+|---|---|---|
+| 1 | [README.md](README.md)(本文件)| 仓入口 + 库设计 + v0.9.0 收口段 |
+| 2 | [QUICKSTART.md](QUICKSTART.md) | 15 分钟跑通注册 1 个 peer |
+| 3 | [DEPLOY.md](DEPLOY.md) | 作为 WAU-core-kernel 子模块加载 |
+| 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | peer schema + 索引 + 失效策略 |
+| 5 | [CHANGELOG.md](CHANGELOG.md) | v0.3.0 + v0.8.0 + v0.9.0 倒序 |
+
+### 历史锚点
+
+- v0.3.0 library 完成(per [[project-wau-v0.5.1-actual-state]])
+- v0.8.0 GA([[project-v0.8.0-GA-2026-07-13]])
+
 ## License
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
